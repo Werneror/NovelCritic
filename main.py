@@ -27,12 +27,14 @@ def chat_with_llm(model, temperature, message):
 
 class Novel:
 
-    def __init__(self, novel_path, output_dir):
+    def __init__(self, novel_path, output_dir, magazine):
         self.novel_path = novel_path
         self.output_dir = output_dir
-        self.text = str()
-        self.title = list()
+        self.magazine = magazine
+        self.title = str()
+        self.text = list()
         self.critical = str()
+        self.core = str()
 
     def read(self):
         logging.info("正在读取小说内容...")
@@ -70,14 +72,29 @@ class Novel:
         self.critical_analysis()
 
     def critical_analysis(self):
-        logging.info("正在进行最严重问题分析...")
+        logging.info("正在分析最严重问题...")
         messages = [
-            {"role": "system", "content": "你是《科幻世界》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "请先仔细阅读用户投稿的科幻小说，然后向用户一针见血地指出，小说存在的最严重问题。"
+            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
+                                          "请先仔细阅读用户投稿的小说，然后向用户一针见血地指出，小说存在的最严重问题。"
                                           "不用强调自己的身份，请仅指出存在的问题。"},
             {"role": "user", "content": self.get_text_with_title()},
         ]
         self.critical = chat_with_llm("deepseek-chat", 0.5, messages)
+
+    def core_analysis(self):
+        logging.info("正在分析核心问题...")
+        messages = [
+            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
+                                          "请先仔细阅读用户投稿的小说，然后着眼小说整体，回答下列问题："
+                                          "1. 故事的核心概念/主题是否清晰、有力？"
+                                          "2. 整体感觉如何？节奏是拖沓还是仓促？情绪是否连贯？"
+                                          "3. 开头是否立刻抓住读者？结尾是否令人满意、余韵悠长？是否呼应了开头和主题？"
+                                          "4. 主角的目标、动机、冲突是否明确且贯穿始终？"
+                                          "5. 故事的主要脉络是否清晰？是否有逻辑断裂或突兀的转折？"
+                                          "不用强调自己的身份，请直接回答上述问题。"},
+            {"role": "user", "content": self.get_text_with_title()},
+        ]
+        self.core = chat_with_llm("deepseek-chat", 0.5, messages)
 
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
@@ -92,9 +109,13 @@ class Novel:
 - 字数：越 {len(self.get_text())}
 - 自然段：共 {len(self.text)} 个
 
-## 最严重问题
+## 最严重问题分析
 
 {self.critical}
+
+## 核心问题分析
+
+{self.core}
 
 """
         with open(report_path, "w") as f:
@@ -120,7 +141,15 @@ def main():
         '-o', '--output',
         type=str,
         default='reports',
-        help='指定输出目录 (默认: reports)'
+        help='指定输出目录'
+    )
+
+    # 添加可选的杂志参数
+    parser.add_argument(
+        '-m', '--magazine',
+        type=str,
+        default='科幻世界',
+        help='指定想要投稿的杂志。不同杂志接收不同风格、类型的稿件，对稿件有不同要求，指定杂志有助于做出更有针对性的分析。'
     )
 
     # 解析命令行参数
@@ -148,7 +177,7 @@ def main():
     logging.info(f"内容将输出至: {args.output}")
 
     # 分析小说
-    novel = Novel(args.filename, args.output)
+    novel = Novel(args.filename, args.output, args.magazine)
     novel.read()
     novel.analysis()
     novel.save()
