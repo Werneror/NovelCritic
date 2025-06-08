@@ -22,7 +22,7 @@ def chat_with_llm(model, temperature, message):
             delta_content = chunk.choices[0].delta.content
             print(delta_content, end='', flush=True)
             full_content += delta_content
-
+    print()
     return full_content
 
 
@@ -36,6 +36,7 @@ class Novel:
         self.text = list()
         self.critical = str()
         self.core = str()
+        self.plot_and_rhythm = str()
 
     def read(self):
         logging.info("正在读取小说内容...")
@@ -69,10 +70,6 @@ class Novel:
             text_with_no.append(p)
         return "\n\n".join(self.text)
 
-    def analysis(self):
-        self.critical_analysis()
-        self.core_analysis()
-
     def critical_analysis(self):
         logging.info("正在分析最严重问题...")
         messages = [
@@ -98,6 +95,25 @@ class Novel:
         ]
         self.core = chat_with_llm("deepseek-chat", 0.5, messages)
 
+    def plot_and_rhythm_analysis(self):
+        logging.info("正在检查情节结构与节奏...")
+        messages = [
+            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
+                                          "请先仔细阅读用户投稿的小说，然后着眼小说整体，检查情节结构与节奏："
+                                          "1. 情节骨架是否完整？是否能清晰地提炼出“开端（设定期望、引入主角、触发事件）-> 发展（冲突升级、尝试解决、挫折、转折点）-> 高潮（最大冲突、决战/抉择）-> 结局（解决、后果、新常态）”的脉络？"
+                                          "2. 节奏把控如何？哪些部分进展太慢（信息冗余、描写过多、无关情节）？哪些部分太快（关键情感/转折没展开）？高潮部分是否足够分量？结局是否仓促？"
+                                          "3. 情节是否由冲突驱动？每个场景是否都有明确的冲突（外部或内部）在推动？冲突是否在合理升级？"
+                                          "4. 情节是否保持悬念与张力？是否能持续吸引读者想知道接下来发生什么？转折点是否有效？"
+                                          "不用强调自己的身份，请直接回答上述问题。"},
+            {"role": "user", "content": self.get_text_with_title()},
+        ]
+        self.plot_and_rhythm = chat_with_llm("deepseek-chat", 0.5, messages)
+
+    def analysis(self):
+        self.critical_analysis()
+        self.core_analysis()
+        self.plot_and_rhythm_analysis()
+
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         report_path = os.path.join(self.output_dir, report_filename)
@@ -111,13 +127,17 @@ class Novel:
 - 字数：越 {len(self.get_text())}
 - 自然段：共 {len(self.text)} 个
 
-## 最严重问题分析
+## 最严重问题
 
 {self.critical}
 
-## 核心问题分析
+## 核心问题
 
 {self.core}
+
+## 情节结构与节奏
+
+{self.plot_and_rhythm}
 
 """
         with open(report_path, "w") as f:
