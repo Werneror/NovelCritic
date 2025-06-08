@@ -22,6 +22,7 @@ def chat_with_llm(model, temperature, message):
             delta_content = chunk.choices[0].delta.content
             print(delta_content, end='', flush=True)
             full_content += delta_content
+
     return full_content
 
 
@@ -70,6 +71,7 @@ class Novel:
 
     def analysis(self):
         self.critical_analysis()
+        self.core_analysis()
 
     def critical_analysis(self):
         logging.info("正在分析最严重问题...")
@@ -126,14 +128,14 @@ def main():
     # 设置命令行参数解析器
     parser = argparse.ArgumentParser(
         description='小说批改工具 - 输入小说文件进行批改分析',
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
     # 添加必需的文件名参数
     parser.add_argument(
         'filename',
         type=str,
-        help='''输入要分析的小说文件名，仅支持纯文本文件'''
+        help='''输入要分析的小说文件名，仅支持纯文本文件''',
     )
 
     # 添加可选输出参数
@@ -141,7 +143,7 @@ def main():
         '-o', '--output',
         type=str,
         default='reports',
-        help='指定输出目录'
+        help='指定输出目录（（默认值：reports）',
     )
 
     # 添加可选的杂志参数
@@ -149,8 +151,14 @@ def main():
         '-m', '--magazine',
         type=str,
         default='科幻世界',
-        help='指定想要投稿的杂志。不同杂志接收不同风格、类型的稿件，对稿件有不同要求，指定杂志有助于做出更有针对性的分析。'
+        help='指定想要投稿的杂志。不同杂志接收不同风格、类型的稿件，对稿件有不同要求，指定杂志有助于做出更有针对性的分析。（默认值：科幻世界）',
     )
+
+    # 添加可选的日志级别参数
+    parser.add_argument('-l', '--log-level',
+                        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                        default='INFO',
+                        help='设置日志级别（默认值：INFO）')
 
     # 解析命令行参数
     args = parser.parse_args()
@@ -171,6 +179,17 @@ def main():
             sys.exit(f"错误: 指定的输出目录 '{args.output}' 已存在但不是目录，请检查")
     else:
         os.mkdir(args.output)
+
+    # 检查日志级别
+    numeric_level = getattr(logging, args.log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        sys.exit(f"错误: 无效的日志级别 '{args.log_level}'")
+
+    # 配置日志系统
+    logging.basicConfig(
+        level=numeric_level,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
 
     # 打印确认信息
     logging.info(f"准备分析小说: {args.filename}")
