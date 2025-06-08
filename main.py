@@ -4,7 +4,24 @@ import sys
 from datetime import datetime
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("API_KEY"), base_url=os.getenv("BASE_URL"))
+
+def chat_with_llm(model, temperature, message):
+    client = OpenAI(api_key=os.getenv("API_KEY"), base_url=os.getenv("BASE_URL"))
+    response = client.chat.completions.create(
+        model=model,
+        temperature=temperature,
+        messages=message,
+        stream=True
+    )
+    full_content = ""
+    print("大语言模型思考中...")
+    # 遍历流式响应
+    for chunk in response:
+        if chunk.choices[0].delta.content:
+            delta_content = chunk.choices[0].delta.content
+            print(delta_content, end='', flush=True)
+            full_content += delta_content
+    return full_content
 
 
 class Novel:
@@ -53,19 +70,13 @@ class Novel:
 
     def critical_analysis(self):
         print("正在进行最严重问题分析...")
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": "你是《科幻世界》杂志的资深编辑，对投稿有着严苛的要求。"
-                                              "请先仔细阅读用户投稿的科幻小说，然后向用户一针见血地指出，小说存在的最严重问题。"
-                                              "不用强调自己的身份，请仅指出存在的问题。"},
-                {"role": "user", "content": self.get_text_with_title()},
-            ],
-            stream=False
-        )
-        self.critical = response.choices[0].message.content
-        print(self.critical)
+        messages = [
+            {"role": "system", "content": "你是《科幻世界》杂志的资深编辑，对投稿有着严苛的要求。"
+                                          "请先仔细阅读用户投稿的科幻小说，然后向用户一针见血地指出，小说存在的最严重问题。"
+                                          "不用强调自己的身份，请仅指出存在的问题。"},
+            {"role": "user", "content": self.get_text_with_title()},
+        ]
+        self.critical = chat_with_llm("deepseek-chat", 0.5, messages)
 
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
