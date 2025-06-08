@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import sys
 from datetime import datetime
@@ -14,8 +15,8 @@ def chat_with_llm(model, temperature, message):
         stream=True
     )
     full_content = ""
-    print("大语言模型思考中...")
-    # 遍历流式响应
+    logging.info("大语言模型思考中...")
+    # 遍历流式响应，实时输出到终端
     for chunk in response:
         if chunk.choices[0].delta.content:
             delta_content = chunk.choices[0].delta.content
@@ -34,7 +35,7 @@ class Novel:
         self.critical = str()
 
     def read(self):
-        print("正在读取小说内容...")
+        logging.info("正在读取小说内容...")
         lines = list()
         with open(self.novel_path) as f:
             for line in f:
@@ -43,9 +44,9 @@ class Novel:
                     lines.append(line)
         title = lines[0].replace("《", "").replace("》", "")
         text = lines[1:]
-        print(f"小说标题为：{title}")
-        print(f"小说正文共有 {len(text)} 个自然段")
-        print(f"小说正文约有 {len(''.join(text))} 字")
+        logging.info(f"小说标题为：{title}")
+        logging.info(f"小说正文共有 {len(text)} 个自然段")
+        logging.info(f"小说正文约有 {len(''.join(text))} 字")
         self.title = title
         self.text = text
 
@@ -69,7 +70,7 @@ class Novel:
         self.critical_analysis()
 
     def critical_analysis(self):
-        print("正在进行最严重问题分析...")
+        logging.info("正在进行最严重问题分析...")
         messages = [
             {"role": "system", "content": "你是《科幻世界》杂志的资深编辑，对投稿有着严苛的要求。"
                                           "请先仔细阅读用户投稿的科幻小说，然后向用户一针见血地指出，小说存在的最严重问题。"
@@ -143,8 +144,8 @@ def main():
         os.mkdir(args.output)
 
     # 打印确认信息
-    print(f"准备分析小说: {args.filename}")
-    print(f"内容将输出至: {args.output}")
+    logging.info(f"准备分析小说: {args.filename}")
+    logging.info(f"内容将输出至: {args.output}")
 
     # 分析小说
     novel = Novel(args.filename, args.output)
