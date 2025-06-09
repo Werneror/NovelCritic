@@ -37,6 +37,7 @@ class Novel:
         self.critical = str()
         self.core = str()
         self.plot_and_rhythm = str()
+        self.character = str()
 
     def read(self):
         logging.info("正在读取小说内容...")
@@ -113,10 +114,27 @@ class Novel:
         ]
         self.plot_and_rhythm = chat_with_llm("deepseek-chat", 0.2, messages)
 
+    def character_analysis(self):
+        logging.info("正在分析人物...")
+        logging.info("正在检查情节结构与节奏...")
+        messages = [
+            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
+                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
+                                          "你会仔细完整阅读用户投稿的小说，认真审视小说主要角色的人物弧光在下列议题中的表现。"
+                                          "如果表现不好，你会毫不留情的指出，以帮助用户更快成长；"
+                                          "如果表现好，你会给予客观的评价，但不会夸赞，以免用户骄傲。"
+                                          "1. 主角是否经历了有意义的成长或转变？这个转变是否可信？动机是否充分？"
+                                          "2. 主要配角是否立体？他们的存在是否服务于主角的成长或情节的推进？他们的动机是否清晰？"
+                                          "3. 人物关系的发展是否自然、有张力？"},
+            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+        ]
+        self.character = chat_with_llm("deepseek-chat", 0.2, messages)
+
     def analysis(self):
         self.critical_analysis()
         self.core_analysis()
         self.plot_and_rhythm_analysis()
+        self.character_analysis()
 
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
@@ -142,6 +160,10 @@ class Novel:
 ## 情节结构与节奏
 
 {self.plot_and_rhythm}
+
+## 任务
+
+{self.character}
 
 """
         with open(report_path, "w") as f:
