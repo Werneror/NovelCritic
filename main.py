@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import os
 import sys
@@ -6,13 +7,16 @@ from datetime import datetime
 from openai import OpenAI
 
 
-def chat_with_llm(model, temperature, message):
+def chat_with_llm(model, temperature, message, response_format):
     client = OpenAI(api_key=os.getenv("API_KEY"), base_url=os.getenv("BASE_URL"))
     response = client.chat.completions.create(
         model=model,
         temperature=temperature,
         messages=message,
-        stream=True
+        stream=True,
+        response_format={
+            'type': response_format,
+        },
     )
     full_content = ""
     logging.info("大语言模型思考中...")
@@ -39,6 +43,7 @@ class Novel:
         self.plot_and_rhythm = str()
         self.character = str()
         self.theme = str()
+        self.scenes = list()
 
     def read(self):
         logging.info("正在读取小说内容...")
@@ -62,15 +67,12 @@ class Novel:
     def get_text(self):
         return "\n\n".join(self.text)
 
-    def get_text_with_title(self):
-        return f"《{self.get_title()}》\n\n{self.get_title()}"
-
     def get_text_with_no(self):
         text_with_no = list()
         for i, p in enumerate(self.text):
             p = f"【{i + 1}】{p}"
             text_with_no.append(p)
-        return "\n\n".join(self.text)
+        return "\n\n".join(text_with_no)
 
     def critical_analysis(self):
         logging.info("正在分析最严重问题...")
@@ -80,7 +82,7 @@ class Novel:
                                           "你会仔细完整阅读用户投稿的小说，不强调自己的身份，向用户一针见血地指出小说存在的最严重问题。"},
             {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
         ]
-        self.critical = chat_with_llm("deepseek-chat", 0.2, messages)
+        self.critical = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def core_analysis(self):
         logging.info("正在分析核心问题...")
@@ -97,7 +99,7 @@ class Novel:
                                           "5. 故事的主要脉络是否清晰？是否有逻辑断裂或突兀的转折？"},
             {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
         ]
-        self.core = chat_with_llm("deepseek-chat", 0.2, messages)
+        self.core = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def plot_and_rhythm_analysis(self):
         logging.info("正在检查情节结构与节奏...")
@@ -113,7 +115,7 @@ class Novel:
                                           "4. 情节是否保持悬念与张力？是否能持续吸引读者想知道接下来发生什么？转折点是否有效？"},
             {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
         ]
-        self.plot_and_rhythm = chat_with_llm("deepseek-chat", 0.2, messages)
+        self.plot_and_rhythm = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def character_analysis(self):
         logging.info("正在分析人物...")
@@ -128,7 +130,7 @@ class Novel:
                                           "3. 人物关系的发展是否自然、有张力？"},
             {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
         ]
-        self.character = chat_with_llm("deepseek-chat", 0.2, messages)
+        self.character = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def theme_analysis(self):
         logging.info("正在分析故事主旨...")
@@ -142,18 +144,51 @@ class Novel:
                                           "2. 结局是否强化或反思了这个主题？"},
             {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
         ]
-        self.theme = chat_with_llm("deepseek-chat", 0.2, messages)
+        self.theme = chat_with_llm("deepseek-chat", 0.2, messages, "text")
+
+    def scene_analysis(self):
+        logging.info("正在分析故事场景...")
+        messages = [
+            {"role": "system",
+             "content": f"你是一名非常负责的文学编辑，你会仔细完整阅读用户投稿的小说，认真分析小说具有哪些场景，"
+                        "然后以 JSON 格式输出一份场景列表。示例输出如下："
+                        ""
+                        '{"total": 2, "scenes": [{"scene": 1, "summary": "场景 1 的概述", "paragraphs_start": 1, "paragraphs_end": 4}, {"scene": 2, "summary": "场景 2 的概述", "paragraphs_start": 5, "paragraphs_end": 7}]}'
+                        ""
+                        "含义是：共有 2 个场景。第 1 个场景包含第 1~4 自然段，第 2 个场景包含第 5~7 自然段。"},
+            {"role": "user",
+             "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文，每一自然段开头用括号括起来的数字是自然段编号：\n\n\n{self.get_text_with_no()}"},
+        ]
+        result = json.loads(chat_with_llm("deepseek-chat", 0.2, messages, "json_object"))
+        logging.info(f"共有 {result['total']} 个场景")
+        for scene in result["scenes"]:
+            logging.info(
+                f"场景 {scene['scene']}（{scene['paragraphs_start']}~{scene['paragraphs_end']}）: {scene['summary']}")
+        self.scenes = result["scenes"]
 
     def analysis(self):
+        # 对全文的分析
         self.critical_analysis()
         self.core_analysis()
         self.plot_and_rhythm_analysis()
         self.character_analysis()
         self.theme_analysis()
+        # 对场景的分析
+        self.scene_analysis()
 
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
         report_path = os.path.join(self.output_dir, report_filename)
+        scenes = str()
+        for i, scene in enumerate(self.scenes):
+            scenes += f"""
+#### 场景 {i + 1}
+
+范围：从第 {scene['paragraphs_start']} 到第 {scene['paragraphs_end']} 个自然段。
+
+主要内容：{scene['summary']}
+
+"""
         report = f"""
 # 小说《{self.get_title()}》分析报告
 
@@ -163,6 +198,11 @@ class Novel:
 
 - 字数：越 {len(self.get_text())}
 - 自然段：共 {len(self.text)} 个
+- 场景：共 {len(self.scenes)} 个
+
+### 场景
+
+{scenes}
 
 ## 最严重问题
 
