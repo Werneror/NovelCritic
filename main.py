@@ -19,7 +19,7 @@ def chat_with_llm(model, temperature, message, response_format):
         },
     )
     full_content = ""
-    logging.info("大语言模型思考中...")
+    logging.info(f"{model} 思考中...")
     # 遍历流式响应，实时输出到终端
     for chunk in response:
         if chunk.choices[0].delta.content:
@@ -44,14 +44,15 @@ class Scene:
     def get_text(self):
         return "\n\n".join(self.paragraphs)
 
+    def get_system_prompt(self):
+        return f"""你是《{self.magazine}》杂志的编辑，具有丰富的审稿经验，同时也是资深xx编剧与小说家，熟悉故事创作原理，具有丰富的故事创作经验。
+现在，你受邀成为小说写作课的特聘教授，负责批改学生作业。对这项工作，你非常认真负责。
+你总是毫不留情，一针见血，直击要害，指出学生提交的小说中的问题。你总是非常吝啬自己的赞美，除非遇到非常优秀的作品，否则你不会给出任何好的评价。"""
+
     def validity_analysis(self):
         logging.info("正在分析该场景的有效性...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的编辑，具有丰富的审稿经验，"
-                                          "同时也是资深xx编剧与小说家，熟悉故事创作原理，具有丰富的故事创作经验。"
-                                          "现在，你受邀成为小说写作课的特聘教授，负责批改学生作业。对这项工作，你非常认真负责。"
-                                          "你总是毫不留情，一针见血，直击要害，指出学生提交的小说中的问题。"
-                                          "你总是非常吝啬自己的赞美，除非遇到非常优秀的作品，否则你不会给出任何好的评价。"},
+            {"role": "system", "content": self.get_system_prompt()},
             {"role": "user",
              "content": f"老师您好，我的小说题目是《{self.get_title()}》，下面的内容是我的小说中的一个场景：\n\n\n{self.get_text()}"},
             {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这个场景，你关注哪方面的问题？"},
@@ -68,10 +69,10 @@ class Scene:
 
     def report(self):
         return f"""
-#### 场景有效性分析
-
-{self.validity}
-"""
+    #### 场景有效性分析
+    
+    {self.validity}
+    """
 
 
 class Novel:
@@ -125,75 +126,77 @@ class Novel:
                 paragraphs.append(p)
         return paragraphs
 
+    def get_system_prompt(self):
+        return f"""你是《{self.magazine}》杂志的编辑，具有丰富的审稿经验，同时也是资深xx编剧与小说家，熟悉故事创作原理，具有丰富的故事创作经验。
+现在，你受邀成为小说写作课的特聘教授，负责批改学生作业。对这项工作，你非常认真负责。
+你总是毫不留情，一针见血，直击要害，指出学生提交的小说中的问题。你总是非常吝啬自己的赞美，除非遇到非常优秀的作品，否则你不会给出任何好的评价。"""
+
     def critical_analysis(self):
         logging.info("正在分析最严重问题...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
-                                          "你会仔细完整阅读用户投稿的小说，不强调自己的身份，向用户一针见血地指出小说存在的最严重问题。"},
-            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好。下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这篇小说，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这篇小说最严重的问题。想请老师点评，这篇小说中存在的最严重问题是什么？"},
         ]
         self.critical = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def core_analysis(self):
         logging.info("正在分析核心问题...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
-                                          "你会仔细完整阅读用户投稿的小说，认真思考用户投稿的小说在下列议题中的表现。"
-                                          "如果表现不好，你会毫不留情的指出，以帮助用户更快成长；"
-                                          "如果表现好，你会给予客观的评价，但不会夸赞，以免用户骄傲。"
-                                          "1. 故事的核心概念/主题是否清晰、有力？"
-                                          "2. 整体感觉如何？节奏是拖沓还是仓促？情绪是否连贯？"
-                                          "3. 开头是否立刻抓住读者？结尾是否令人满意、余韵悠长？是否呼应了开头和主题？"
-                                          "4. 主角的目标、动机、冲突是否明确且贯穿始终？"
-                                          "5. 故事的主要脉络是否清晰？是否有逻辑断裂或突兀的转折？"},
-            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好。下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这篇小说，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这篇小说的一些核心问题。想请老师点评："
+                                        "1. 故事的核心概念/主题是否清晰、有力？"
+                                        "2. 整体感觉如何？节奏是拖沓还是仓促？情绪是否连贯？"
+                                        "3. 开头是否立刻抓住读者？结尾是否令人满意、余韵悠长？是否呼应了开头和主题？"
+                                        "4. 主角的目标、动机、冲突是否明确且贯穿始终？"
+                                        "5. 故事的主要脉络是否清晰？是否有逻辑断裂或突兀的转折？"},
         ]
         self.core = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def plot_and_rhythm_analysis(self):
         logging.info("正在检查情节结构与节奏...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
-                                          "你会仔细完整阅读用户投稿的小说，认真思考用户投稿的小说的情节结构与节奏在下列议题中的表现。"
-                                          "如果表现不好，你会毫不留情的指出，以帮助用户更快成长；"
-                                          "如果表现好，你会给予客观的评价，但不会夸赞，以免用户骄傲。"
-                                          "1. 情节骨架是否完整？是否能清晰地提炼出“开端（设定期望、引入主角、触发事件）-> 发展（冲突升级、尝试解决、挫折、转折点）-> 高潮（最大冲突、决战/抉择）-> 结局（解决、后果、新常态）”的脉络？"
-                                          "2. 节奏把控如何？哪些部分进展太慢（信息冗余、描写过多、无关情节）？哪些部分太快（关键情感/转折没展开）？高潮部分是否足够分量？结局是否仓促？"
-                                          "3. 情节是否由冲突驱动？每个场景是否都有明确的冲突（外部或内部）在推动？冲突是否在合理升级？"
-                                          "4. 情节是否保持悬念与张力？是否能持续吸引读者想知道接下来发生什么？转折点是否有效？"},
-            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好。下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这篇小说，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这篇小说的情节结构与节奏。想请老师点评："
+                                        "1. 情节骨架是否完整？是否能清晰地提炼出“开端（设定期望、引入主角、触发事件）-> 发展（冲突升级、尝试解决、挫折、转折点）-> 高潮（最大冲突、决战/抉择）-> 结局（解决、后果、新常态）”的脉络？"
+                                        "2. 节奏把控如何？哪些部分进展太慢（信息冗余、描写过多、无关情节）？哪些部分太快（关键情感/转折没展开）？高潮部分是否足够分量？结局是否仓促？"
+                                        "3. 情节是否由冲突驱动？每个场景是否都有明确的冲突（外部或内部）在推动？冲突是否在合理升级？"
+                                        "4. 情节是否保持悬念与张力？是否能持续吸引读者想知道接下来发生什么？转折点是否有效？"},
         ]
         self.plot_and_rhythm = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def character_analysis(self):
-        logging.info("正在分析人物...")
+        logging.info("正在分析人物弧光...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
-                                          "你会仔细完整阅读用户投稿的小说，认真审视小说主要角色的人物弧光在下列议题中的表现。"
-                                          "如果表现不好，你会毫不留情的指出，以帮助用户更快成长；"
-                                          "如果表现好，你会给予客观的评价，但不会夸赞，以免用户骄傲。"
-                                          "1. 主角是否经历了有意义的成长或转变？这个转变是否可信？动机是否充分？"
-                                          "2. 主要配角是否立体？他们的存在是否服务于主角的成长或情节的推进？他们的动机是否清晰？"
-                                          "3. 人物关系的发展是否自然、有张力？"},
-            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好。下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这篇小说，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这篇小说中的人物弧光。想请老师点评："
+                                        "1. 主角是否经历了有意义的成长或转变？这个转变是否可信？动机是否充分？"
+                                        "2. 主要配角是否立体？他们的存在是否服务于主角的成长或情节的推进？他们的动机是否清晰？"
+                                        "3. 人物关系的发展是否自然、有张力？"},
         ]
         self.character = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
     def theme_analysis(self):
         logging.info("正在分析故事主旨...")
         messages = [
-            {"role": "system", "content": f"你是《{self.magazine}》杂志的资深编辑，对投稿有着严苛的要求。"
-                                          "你不会强调自己的身份，你会直接开始讨论用户投稿的小说。"
-                                          "你会仔细完整阅读用户投稿的小说，认真小说的主题与核心在下列议题中的表现。"
-                                          "如果表现不好，你会毫不留情的指出，以帮助用户更快成长；"
-                                          "如果表现好，你会给予客观的评价，但不会夸赞，以免用户骄傲。"
-                                          "1. 故事想表达的核心思想是什么？是否贯穿始终？是否通过情节和人物自然地展现出来，而不是强行说教？"
-                                          "2. 结局是否强化或反思了这个主题？"},
-            {"role": "user", "content": f"下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好。下面是我创作的短篇小说《{self.get_title()}》的全文：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这篇小说，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这篇小说的主题与核心。想请老师点评："
+                                        "1. 故事想表达的核心思想是什么？是否贯穿始终？是否通过情节和人物自然地展现出来，而不是强行说教？"
+                                        "2. 结局是否强化或反思了这个主题？"},
         ]
         self.theme = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
