@@ -30,6 +30,50 @@ def chat_with_llm(model, temperature, message, response_format):
     return full_content
 
 
+class Scene:
+
+    def __init__(self, magazine, title, paragraphs):
+        self.magazine = magazine
+        self.title = title
+        self.paragraphs = paragraphs
+        self.validity = str()
+
+    def get_title(self):
+        return self.title
+
+    def get_text(self):
+        return "\n\n".join(self.paragraphs)
+
+    def validity_analysis(self):
+        logging.info("正在分析该场景的有效性...")
+        messages = [
+            {"role": "system", "content": f"你是《{self.magazine}》杂志的编辑，具有丰富的审稿经验，"
+                                          "同时也是资深xx编剧与小说家，熟悉故事创作原理，具有丰富的故事创作经验。"
+                                          "现在，你受邀成为小说写作课的特聘教授，负责批改学生作业。对这项工作，你非常认真负责。"
+                                          "你总是毫不留情，一针见血，直击要害，指出学生提交的小说中的问题。"
+                                          "你总是非常吝啬自己的赞美，除非遇到非常优秀的作品，否则你不会给出任何好的评价。"},
+            {"role": "user",
+             "content": f"老师您好，我的小说题目是《{self.get_title()}》，下面的内容是我的小说中的一个场景：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这个场景，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注场景有效性的问题。想请老师点评："
+                                        "1. 每个场景是否有明确的目的？（例如：展示人物性格、推进情节、制造冲突、揭示信息、建立氛围）"
+                                        "2. 场景是否遵循“目标 -> 冲突 -> 挫折/结果”的基本结构？"
+                                        "3. 场景的开头和结尾是否有力？是否能自然过渡到下一场景？"
+                                        "4. 场景中的视角是否清晰一致？（如果是单一视角，确保没有“越界”）"},
+        ]
+        self.validity = chat_with_llm("deepseek-chat", 0.2, messages, "text")
+
+    def analysis(self):
+        self.validity_analysis()
+
+    def report(self):
+        return f"""
+#### 场景有效性分析
+
+{self.validity}
+"""
+
+
 class Novel:
 
     def __init__(self, novel_path, output_dir, magazine):
@@ -73,6 +117,13 @@ class Novel:
             p = f"【{i + 1}】{p}"
             text_with_no.append(p)
         return "\n\n".join(text_with_no)
+
+    def get_paragraphs_by_scene(self, scene):
+        paragraphs = list()
+        for i, p in enumerate(self.text):
+            if scene["paragraphs_start"] <= i + 1 <= scene["paragraphs_end"]:
+                paragraphs.append(p)
+        return paragraphs
 
     def critical_analysis(self):
         logging.info("正在分析最严重问题...")
@@ -146,7 +197,7 @@ class Novel:
         ]
         self.theme = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
-    def scene_analysis(self):
+    def scenes_analysis(self):
         logging.info("正在分析故事场景...")
         messages = [
             {"role": "system",
@@ -161,9 +212,6 @@ class Novel:
         ]
         result = json.loads(chat_with_llm("deepseek-chat", 0.2, messages, "json_object"))
         logging.info(f"共有 {result['total']} 个场景")
-        for scene in result["scenes"]:
-            logging.info(
-                f"场景 {scene['scene']}（{scene['paragraphs_start']}~{scene['paragraphs_end']}）: {scene['summary']}")
         self.scenes = result["scenes"]
 
     def analysis(self):
@@ -174,7 +222,13 @@ class Novel:
         self.character_analysis()
         self.theme_analysis()
         # 对场景的分析
-        self.scene_analysis()
+        self.scenes_analysis()
+        for scene in self.scenes:
+            logging.info(
+                f"正在分析场景 {scene['scene']}（{scene['paragraphs_start']}~{scene['paragraphs_end']}）: {scene['summary']}")
+            s = Scene(self.magazine, self.get_title(), self.get_paragraphs_by_scene(scene))
+            s.analysis()
+            scene["report"] = s.report()
 
     def save(self):
         report_filename = f"小说《{self.get_title()}》分析报告_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
@@ -182,11 +236,15 @@ class Novel:
         scenes = str()
         for i, scene in enumerate(self.scenes):
             scenes += f"""
-#### 场景 {i + 1}
+### 场景 {i + 1}
 
 范围：从第 {scene['paragraphs_start']} 到第 {scene['paragraphs_end']} 个自然段。
 
 主要内容：{scene['summary']}
+
+对于该场景的具体分析如下。
+
+{scene['report']}
 
 """
         report = f"""
@@ -199,10 +257,6 @@ class Novel:
 - 字数：越 {len(self.get_text())}
 - 自然段：共 {len(self.text)} 个
 - 场景：共 {len(self.scenes)} 个
-
-### 场景
-
-{scenes}
 
 ## 最严重问题
 
@@ -223,6 +277,10 @@ class Novel:
 ## 故事主旨
 
 {self.theme}
+
+## 场景分析
+
+{scenes}
 
 """
         with open(report_path, "w") as f:
