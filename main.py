@@ -37,6 +37,8 @@ class Scene:
         self.title = title
         self.paragraphs = paragraphs
         self.validity = str()
+        self.show_and_tell = str()
+        self.dialogue = str()
 
     def get_title(self):
         return self.title
@@ -56,23 +58,62 @@ class Scene:
             {"role": "user",
              "content": f"老师您好，我的小说题目是《{self.get_title()}》，下面的内容是我的小说中的一个场景：\n\n\n{self.get_text()}"},
             {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这个场景，你关注哪方面的问题？"},
-            {"role": "user", "content": "我关注场景有效性的问题。想请老师点评："
-                                        "1. 每个场景是否有明确的目的？（例如：展示人物性格、推进情节、制造冲突、揭示信息、建立氛围）"
+            {"role": "user", "content": "我关注这个场景有效性的问题。想请老师点评："
+                                        "1. 场景是否有明确的目的？（例如：展示人物性格、推进情节、制造冲突、揭示信息、建立氛围）"
                                         "2. 场景是否遵循“目标 -> 冲突 -> 挫折/结果”的基本结构？"
                                         "3. 场景的开头和结尾是否有力？是否能自然过渡到下一场景？"
                                         "4. 场景中的视角是否清晰一致？（如果是单一视角，确保没有“越界”）"},
         ]
         self.validity = chat_with_llm("deepseek-chat", 0.2, messages, "text")
 
+    def show_and_tell_analysis(self):
+        logging.info("正在分析该场景的展示与讲述...")
+        messages = [
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好，我的小说题目是《{self.get_title()}》，下面的内容是我的小说中的一个场景：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这个场景，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这个场景的“展示”与“讲述”问题。想请老师点评："
+                                        "1. 否存在大量“讲述”而非“展示”的地方？"
+                                        "2. 关键的情感和信息是否通过人物的行动、对话、感官细节等来“展示”？"},
+        ]
+        self.show_and_tell = chat_with_llm("deepseek-chat", 0.2, messages, "text")
+
+    def dialogue_analysis(self):
+        logging.info("正在分析该场景的对话...")
+        messages = [
+            {"role": "system", "content": self.get_system_prompt()},
+            {"role": "user",
+             "content": f"老师您好，我的小说题目是《{self.get_title()}》，下面的内容是我的小说中的一个场景：\n\n\n{self.get_text()}"},
+            {"role": "assistant", "content": "收到，我会仔细阅读。就你给我的这个场景，你关注哪方面的问题？"},
+            {"role": "user", "content": "我关注这个场景中的对话。想请老师点评："
+                                        "1. 对话是否推动情节或揭示人物性格？是否存在无效的闲聊式对话？"
+                                        "2. 对话是否符合人物身份、性格、所处情境？每个人的说话方式是否有区分度？"
+                                        "3. 对话是否自然流畅？是否存在书面化的对话，或是信息倾泻？"
+                                        "4. 对话标签（“他说”、“她问道” 等）是否清晰简洁？是否能适当融入动作描写代替标签？"},
+        ]
+        self.dialogue = chat_with_llm("deepseek-chat", 0.2, messages, "text")
+
     def analysis(self):
         self.validity_analysis()
+        self.show_and_tell_analysis()
+        self.dialogue_analysis()
 
     def report(self):
         return f"""
-    #### 场景有效性分析
-    
-    {self.validity}
-    """
+#### 场景有效性分析
+
+{self.validity}
+
+#### 展示与讲述分析
+
+{self.show_and_tell}
+
+#### 对话分析
+
+{self.dialogue}
+
+"""
 
 
 class Novel:
