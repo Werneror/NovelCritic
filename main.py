@@ -298,7 +298,7 @@ class Novel:
 
 ## 小说概括
 
-- 字数：越 {len(self.get_text())}
+- 字数：约 {len(self.get_text())}
 - 自然段：共 {len(self.text)} 个
 - 场景：共 {len(self.scenes)} 个
 
